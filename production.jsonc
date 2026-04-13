@@ -1,0 +1,54 @@
+{
+  // ===== 品牌标识 =====
+  "productName": "mycode",
+  "productNameDisplay": "MyCode",
+  "productNameUpper": "MYCODE",
+  "productDomain": "mycode.example.com",
+  "productRepoUrl": "https://github.com/your-org/mycode",
+
+  // ===== 上游源 =====
+  "upstreamRepo": "https://github.com/anomalyco/opencode",
+  // ⚠️ 必须是 tag 或完整 SHA，禁止分支名
+  "upstreamRef": "v1.4.3",
+
+  // ===== 桌面应用 =====
+  "desktopAppId": "com.example.mycode",
+  "urlScheme": "mycode",
+  "npmPackageName": "mycode-ai",
+
+  // ===== 全局路径覆盖 =====
+  // null = 沿用 XDG 默认（品牌替换后 app name 已为 productName）
+  // 字符串支持 ${ENV_VAR} 运行时展开
+  "paths": {
+    "data":   null,
+    "cache":  null,
+    "config": null,
+    "state":  null
+  },
+
+  // ===== 品牌替换白名单 =====
+  "brandWhitelist": {
+    // glob 模式（相对 upstream/），命中文件整体跳过
+    "files": [
+      "LICENSE",
+      "NOTICE",
+      "**/node_modules/**",
+      "**/dist/**"
+    ],
+    // 正则模式，命中行整行保留不替换（行级）
+    "lines": [
+      "@brand-keep"
+    ]
+  },
+
+  // ===== 资产文件 =====
+  "assets": {
+    "banner": "assets/banner.txt",
+    "icons": {
+      "tauri": "assets/icons/tauri/",
+      "electron": "assets/icons/electron/",
+      // ⚠️ 多分辨率 ICO（16/32/48/256px）
+      "win": "assets/icons/app.ico"
+    }
+  }
+}

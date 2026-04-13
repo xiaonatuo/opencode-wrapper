@@ -1,0 +1,17 @@
+{
+  "name": "opencode-wrapper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun run scripts/build.ts",
+    "fetch": "bun run scripts/fetch-upstream.ts",
+    "brand": "bun run scripts/apply-brand.ts",
+    "verify": "bun run scripts/verify.ts"
+  },
+  "dependencies": {
+    "strip-json-comments": "^5.0.1"
+  },
+  "devDependencies": {
+    "bun-types": "^1.2.0"
+  }
+}

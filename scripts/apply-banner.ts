@@ -36,8 +36,9 @@ function generateDefaultLogo(productNameDisplay: string): string {
   const midLine = "║" + " ".repeat(padH) + productNameDisplay + " ".repeat(padH) + "║"
   const botLine = "╚" + "═".repeat(inner) + "╝"
 
+  // left 填内容（灰色渲染），right 留空（宽度=0），避免空格撑宽行造成居中偏移
   const leftRows  = [blank, topLine, midLine, botLine]
-  const rightRows = leftRows.map(() => blank)
+  const rightRows = leftRows.map(() => "")
 
   const serArr = (arr: string[]) =>
     "[" + arr.map((s) => JSON.stringify(s)).join(", ") + "]"
@@ -134,11 +135,10 @@ async function main() {
 
     // 将文本 banner 转换为 { left, right } 对象格式
     // logo.ts 的消费方（ui.ts / logo.tsx）均依赖 logo.left / logo.right 数组
-    // 将内容放入 right（亮色渲染），left 填等宽空白（不显示阴影）
+    // left 留空字符串（宽度=0），内容放入 right（亮色渲染）
+    // ⚠️ 不能在 left 填等宽空格：空格也占宽度，会把 right 整体推偏，导致居中失效
     const rows = bannerRaw.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n")
-    const maxLen = rows.reduce((m, r) => Math.max(m, r.length), 0)
-    const blank = " ".repeat(maxLen)
-    const leftRows  = rows.map(() => blank)
+    const leftRows  = rows.map(() => "")
     const rightRows = rows
 
     const serArr = (arr: string[]) =>

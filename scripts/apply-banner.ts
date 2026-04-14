@@ -51,6 +51,18 @@ function generateDefaultLogo(productNameDisplay: string): string {
 }
 
 // ============================================================
+// 工具
+// ============================================================
+
+/** 将 newContent 的行尾符规范化成与 original 保持一致（纯 LF 或纯 CRLF） */
+function normalizeLineEndings(newContent: string, original: string): string {
+  const useCRLF = original.includes("\r\n")
+  // 先统一到 LF
+  const lf = newContent.replace(/\r\n/g, "\n")
+  return useCRLF ? lf.replace(/\n/g, "\r\n") : lf
+}
+
+// ============================================================
 // 替换逻辑
 // ============================================================
 
@@ -121,7 +133,7 @@ async function main() {
       return
     }
 
-    await Bun.write(logoFile, newContent)
+    await Bun.write(logoFile, normalizeLineEndings(newContent, content))
     log("success", `banner 已替换（来源：${assets.banner}）`)
 
     if (isVerbose()) {
@@ -147,7 +159,7 @@ async function main() {
     return
   }
 
-  await Bun.write(logoFile, newContent)
+  await Bun.write(logoFile, normalizeLineEndings(newContent, content))
   log("success", `默认 banner 已生成（productNameDisplay: ${cfg.productNameDisplay}）`)
 
   if (isVerbose()) {

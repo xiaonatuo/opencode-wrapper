@@ -8,7 +8,7 @@
     // ===== 上游源 =====
     "upstreamRepo": "https://github.com/anomalyco/opencode",
     // ⚠️ 必须是 tag 或完整 SHA，禁止分支名
-    "upstreamRef": "v1.4.3",
+    "upstreamRef": "v1.4.2",
     // ===== 桌面应用 =====
     "desktopAppId": "com.example.mycode",
     "urlScheme": "mycode",
@@ -24,13 +24,52 @@
     },
     // 路径模板中环境变量的默认值
     // 当运行时该环境变量未设置时，使用此处的默认值
-    // 优先级：process.env > OS 专属 > 共享（顶层字符串值） > XDG 路径
-    // OS 专属字段：windows / linux / macos；其余顶层字符串字段为所有平台共享
-    // "envDefaults": {
-    //     "windows": { "MY_CODE_ROOT": "C:\\Users\\Public\\mycode" },
-    //     "linux":   { "MY_CODE_ROOT": "/opt/mycode" },
-    //     "macos":   { "MY_CODE_ROOT": "/Library/Application Support/mycode" }
-    // },
+    // 优先级：process.env > 变量级 OS 专属 > 变量级共享值 > XDG 路径
+    // 每个环境变量可配置为：
+    // 1) 字符串：所有平台共享默认值
+    // 2) 对象：按 windows / linux / macos 分别设置默认值
+    "envDefaults": {
+        "MY_CODE_VAR": "1",
+        "MY_CODE_ROOT": {
+            "windows": "C:/Users/Public/mycode",
+            "linux": "/opt/mycode",
+            "macos": "/Library/Application Support/mycode"
+        }
+    },
+    // ===== 构建目标 =====
+    // 指定要构建的 OS/架构组合。未设置时由上游 build.ts 决定（全量或 --single）
+    // os: "linux" | "darwin" | "win32"
+    // arch: "x64" | "arm64"
+    // abi: "musl"（仅 Linux，使用 musl libc）
+    // avx2: false（表示 baseline，不要求 AVX2 指令集）
+    "buildTargets": [
+        {
+            "os": "win32",
+            "arch": "x64"
+        },
+        {
+            "os": "win32",
+            "arch": "x64",
+            "avx2": false
+        },
+        {
+            "os": "linux",
+            "arch": "x64"
+        },
+        {
+            "os": "linux",
+            "arch": "x64",
+            "abi": "musl"
+        },
+        {
+            "os": "darwin",
+            "arch": "arm64"
+        },
+        {
+            "os": "darwin",
+            "arch": "x64"
+        }
+    ],
     // ===== 品牌替换白名单 =====
     "brandWhitelist": {
         // glob 模式（相对 upstream/），命中文件整体跳过

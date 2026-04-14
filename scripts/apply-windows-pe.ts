@@ -8,7 +8,7 @@
 import path from "node:path"
 import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
-import { loadProduction, upstreamDir, log, projectRoot } from "./_utils"
+import { loadProduction, upstreamDir, log, projectRoot, isVerbose, verboseLog } from "./_utils"
 
 async function main() {
   const cfg = await loadProduction()
@@ -66,6 +66,8 @@ async function main() {
 
   await Bun.write(buildTsPath, newContent)
   log("success", "Windows PE 图标已注入 build.ts")
+  verboseLog(`修改内容: windows: {} → windows: { icon: "./script/app.ico" }`)
+  verboseLog(`目标文件: ${buildTsPath}`)
 }
 
 main().catch((e) => {

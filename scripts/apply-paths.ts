@@ -7,7 +7,7 @@
 
 import path from "node:path"
 import { existsSync } from "node:fs"
-import { loadProduction, upstreamDir, log } from "./_utils"
+import { loadProduction, upstreamDir, log, isVerbose, verboseLog } from "./_utils"
 
 async function main() {
   const cfg = await loadProduction()
@@ -28,26 +28,25 @@ async function main() {
 
   const content = await Bun.file(targetFile).text()
 
-  // ⚠️ 幂等检查：已注入则跳过
-  if (content.includes("===== 由 opencode-wrapper 注入 =====")) {
-    log("info", "路径注入已存在，跳过（幂等）")
-    return
-  }
-
   const envPrefix = cfg.productNameUpper
   const rawDefaults = cfg.envDefaults ?? {}
 
-  // 分离 OS 专属 bucket 和共享 defaults
-  const osBucketKeys = new Set(["windows", "linux", "macos"])
   const sharedDefaults: Record<string, string> = {}
+  const win32Defaults: Record<string, string> = {}
+  const linuxDefaults: Record<string, string> = {}
+  const darwinDefaults: Record<string, string> = {}
+
   for (const [k, v] of Object.entries(rawDefaults)) {
-    if (!osBucketKeys.has(k) && typeof v === "string") {
+    if (typeof v === "string") {
       sharedDefaults[k] = v
+      continue
+    }
+    if (v && typeof v === "object") {
+      if (typeof v.windows === "string") win32Defaults[k] = v.windows
+      if (typeof v.linux === "string") linuxDefaults[k] = v.linux
+      if (typeof v.macos === "string") darwinDefaults[k] = v.macos
     }
   }
-  const win32Defaults: Record<string, string> = (rawDefaults.windows as Record<string, string>) ?? {}
-  const linuxDefaults: Record<string, string> = (rawDefaults.linux as Record<string, string>) ?? {}
-  const darwinDefaults: Record<string, string> = (rawDefaults.macos as Record<string, string>) ?? {}
 
   // 生成路径赋值语句
   // ⚠️ 在 global/index.ts 中 Path 导出为 Global.Path（namespace），必须使用完整引用
@@ -77,7 +76,7 @@ async function main() {
   const injectionLf = `
 // ===== 由 opencode-wrapper 注入 ===== @brand-keep
 // 环境变量默认值（构建期固化自 production.jsonc envDefaults）
-// 优先级：process.env > OS 专属 defaults > 共享 defaults > XDG fallback
+// 优先级：process.env > 变量级 OS 专属 defaults > 变量级共享 defaults > XDG fallback
 const _envDefaultsByPlatform: Record<string, Record<string, string>> = {
   win32: ${ser(win32Defaults)},
   linux: ${ser(linuxDefaults)},
@@ -102,9 +101,27 @@ ${assignments.join("\n")}
 `
   const injection = injectionLf.replace(/\n/g, eol)
 
-  const newContent = content + eol + injection
+  const existingBlockPattern = new RegExp(
+    `${eol === "\r\n" ? "\\r\\n" : "\\n"}?// ===== 由 opencode-wrapper 注入 ===== @brand-keep[\\s\\S]*?// ===== 注入结束 =====${eol === "\r\n" ? "\\r\\n?" : "\\n?"}`,
+  )
+  const contentWithoutOldInjection = content.replace(existingBlockPattern, eol)
+
+  const initAnchor = `${eol}await Promise.all([`
+  const anchorIdx = contentWithoutOldInjection.indexOf(initAnchor)
+  const newContent = anchorIdx === -1
+    ? contentWithoutOldInjection + eol + injection
+    : contentWithoutOldInjection.slice(0, anchorIdx) + eol + injection + contentWithoutOldInjection.slice(anchorIdx)
+
   await Bun.write(targetFile, newContent)
   log("success", `路径注入完成：${entries.length} 个路径覆盖 + ${(hasData ? 1 : 0) + (hasCache ? 1 : 0)} 个派生路径同步`)
+  if (isVerbose()) {
+    log("dim", `=== 注入目标文件: ${targetFile} ==`)
+    log("dim", "=== 注入内容开始 ===")
+    log("dim", injectionLf)
+    log("dim", "=== 注入内容结束 ===")
+    log("dim", `路径模板: ${entries.map(([k, v]) => `${k}=${v}`).join(", ")}`)
+    log("dim", `支持的平台: win32=${Object.keys(win32Defaults).join(",") || "无"}, linux=${Object.keys(linuxDefaults).join(",") || "无"}, darwin=${Object.keys(darwinDefaults).join(",") || "无"}`)
+  }
 }
 
 main().catch((e) => {

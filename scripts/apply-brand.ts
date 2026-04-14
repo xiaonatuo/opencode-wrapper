@@ -18,6 +18,8 @@ import {
   replaceFullText,
   buildReplacePairs,
   log,
+  isVerbose,
+  verboseLog,
   type ProductionConfig,
   type ReplacePair,
 } from "./_utils"
@@ -205,10 +207,36 @@ async function main() {
     if (newContent !== content) {
       await Bun.write(filePath, newContent)
       modifiedFiles++
+      if (isVerbose()) {
+        log("dim", `  修改: ${relPath}`)
+        // 统计实际命中的替换对
+        const pairs2 = buildReplacePairs(cfg)
+        const hitPairs: string[] = []
+        for (const [re, repl] of pairs2) {
+          re.lastIndex = 0
+          if (re.test(content)) {
+            hitPairs.push(`${re.source} → ${repl}`)
+          }
+        }
+        if (hitPairs.length > 0) {
+          log("dim", `    命中替换项: ${hitPairs.join(" | ")}`)
+        }
+      }
+    } else if (isVerbose()) {
+      verboseLog(`  未变: ${relPath}`)
     }
   }
 
   log("success", `品牌替换完成：扫描 ${totalFiles} 文件，修改 ${modifiedFiles} 文件（含 ${packageJsonCount} 个 package.json）`)
+  if (isVerbose()) {
+    log("dim", `=== 品牌替换阶段总结 ===`)
+    log("dim", `扫描文件总数: ${totalFiles}`)
+    log("dim", `修改文件数: ${modifiedFiles}`)
+    log("dim", `其中 package.json: ${packageJsonCount}`)
+    const pairs3 = buildReplacePairs(cfg)
+    log("dim", `替换对数: ${pairs3.length}`)
+    log("dim", "========================")
+  }
 }
 
 main().catch((e) => {

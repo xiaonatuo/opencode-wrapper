@@ -11,6 +11,7 @@
 
 import path from "node:path"
 import fs from "node:fs/promises"
+import type { Dirent } from "node:fs"
 import { existsSync, readFileSync } from "node:fs"
 import stripJsonComments from "strip-json-comments"
 
@@ -36,12 +37,23 @@ export interface ProductionConfig {
     state: string | null
   }
   envDefaults?: {
-    /** 适用于所有平台的共享默认值（顶层字符串字段） */
-    [varName: string]: string | Record<string, string> | undefined
-    windows?: Record<string, string>
-    linux?: Record<string, string>
-    macos?: Record<string, string>
+      [varName: string]:
+        | string
+        | {
+          windows?: string
+          linux?: string
+          macos?: string
+        }
+        | undefined
   }
+  /**
+   * 要构建的目标列表。未设置时由上游 build.ts 决定（全量或 --single）。
+   * os: "linux" | "darwin" | "win32"
+   * arch: "x64" | "arm64"
+   * abi: "musl"（仅 Linux）
+   * avx2: false 表示 baseline（无 AVX2）
+   */
+  buildTargets?: BuildTarget[]
   brandWhitelist: {
     files: string[]
     lines: string[]
@@ -54,6 +66,14 @@ export interface ProductionConfig {
       win: string
     }
   }
+}
+
+/** 单个构建目标 */
+export interface BuildTarget {
+  os: string
+  arch: "x64" | "arm64"
+  abi?: "musl"
+  avx2?: false
 }
 
 /** 替换对：[正则, 替换值] */
@@ -129,9 +149,9 @@ export async function* walkFiles(
     : SKIP_DIRS
   const skipBin = opts.skipBinary !== false
 
-  let entries: Awaited<ReturnType<typeof fs.readdir>>
+  let entries: Dirent<string>[]
   try {
-    entries = await fs.readdir(dir, { withFileTypes: true })
+    entries = await fs.readdir(dir, { withFileTypes: true, encoding: "utf8" })
   } catch {
     return
   }
@@ -551,12 +571,8 @@ function tokenizeJs(line: string): Segment[] {
 
   // 清空剩余 buffer
   if (buf.length > 0) {
-    const ctx: "normal" | "string" | "comment" =
-      state === "singleQuote" || state === "doubleQuote" || state === "templateLiteral"
-        ? "string"
-        : state === "lineComment" || state === "blockComment"
-          ? "comment"
-          : "normal"
+    const ctx: "normal" | "string" =
+      state === "normal" ? "normal" : "string"
     segments.push({ text: buf, ctx })
   }
 
@@ -739,6 +755,16 @@ export function replaceFullText(
 
 const isCI = !!process.env.CI
 
+/** 是否开启详细日志（由 WRAPPER_VERBOSE=1 控制） */
+export function isVerbose(): boolean {
+  return process.env.WRAPPER_VERBOSE === "1"
+}
+
+/** 仅在 verbose 模式下输出 dim 日志 */
+export function verboseLog(msg: string): void {
+  if (isVerbose()) log("dim", msg)
+}
+
 const COLORS = {
   reset: "\x1b[0m",
   red: "\x1b[31m",
@@ -775,8 +801,20 @@ export function upstreamDir(): string {
 /** 执行 shell 命令并返回结果 */
 export async function exec(
   cmd: string[],
-  opts?: { cwd?: string; env?: Record<string, string> },
+  opts?: { cwd?: string; env?: Record<string, string>; stream?: boolean },
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  if (opts?.stream) {
+    // 流式模式：输出直接继承父进程（实时可见），不缓冲
+    const proc = Bun.spawn(cmd, {
+      cwd: opts?.cwd,
+      env: { ...process.env, ...opts?.env },
+      stdout: "inherit",
+      stderr: "inherit",
+    })
+    const exitCode = await proc.exited
+    return { exitCode, stdout: "", stderr: "" }
+  }
+
   const proc = Bun.spawn(cmd, {
     cwd: opts?.cwd,
     env: { ...process.env, ...opts?.env },

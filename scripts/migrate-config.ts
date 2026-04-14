@@ -7,7 +7,7 @@
 
 import path from "node:path"
 import { existsSync } from "node:fs"
-import { loadProduction, upstreamDir, log } from "./_utils"
+import { loadProduction, upstreamDir, log, isVerbose, verboseLog } from "./_utils"
 
 async function main() {
   const cfg = await loadProduction()
@@ -20,6 +20,12 @@ async function main() {
   }
 
   const content = await Bun.file(targetFile).text()
+
+  // ⚠️ 幂等检查：已注入则跳过
+  if (content.includes("_wrapperMigrate")) {
+    log("info", "迁移补丁已存在，跳过（幂等）")
+    return
+  }
 
   // 旧品牌名用于推导旧路径
   const oldName = "opencode"
@@ -180,6 +186,14 @@ import _migrateFs from "node:fs"
 
   await Bun.write(targetFile, lines.join(eol))
   log("success", "迁移补丁已注入 src/index.ts")
+  if (isVerbose()) {
+    log("dim", `目标文件: ${targetFile}`)
+    log("dim", `迁移任务数: items (根据运行时实际路径计算)`)
+    log("dim", `旧品牌: ${oldName} → 新品牌: ${newName}`)
+    log("dim", "=== 注入代码预览 (300 字符) ===")
+    log("dim", migrationCode.slice(0, 300) + (migrationCode.length > 300 ? "..." : ""))
+    log("dim", "=== 预览结束 ===")
+  }
 }
 
 main().catch((e) => {

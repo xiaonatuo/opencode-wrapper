@@ -14,6 +14,8 @@ import {
   log,
   replaceStringLiterals,
   buildReplacePairs,
+  isVerbose,
+  verboseLog,
 } from "./_utils"
 
 async function main() {
@@ -118,6 +120,12 @@ async function main() {
   }
 
   log("success", "图标覆盖完成")
+  if (isVerbose()) {
+    log("dim", "=== 图标覆盖阶段总结 ===")
+    log("dim", `Tauri 图标源: ${icons.tauri || "未配置"}`)
+    log("dim", `Electron 图标源: ${icons.electron || "未配置"}`)
+    log("dim", "========================")
+  }
 }
 
 main().catch((e) => {

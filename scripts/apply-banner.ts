@@ -7,7 +7,7 @@
 
 import path from "node:path"
 import { existsSync } from "node:fs"
-import { loadProduction, upstreamDir, log, projectRoot } from "./_utils"
+import { loadProduction, upstreamDir, log, projectRoot, isVerbose, verboseLog } from "./_utils"
 
 async function main() {
   const cfg = await loadProduction()
@@ -50,6 +50,12 @@ async function main() {
     )
     await Bun.write(logoFile, newContent)
     log("success", "banner 已替换")
+    if (isVerbose()) {
+      log("dim", `目标文件: ${logoFile}`)
+      log("dim", `Banner 源: ${bannerPath}`)
+      log("dim", `=== Banner 内容预览 (${bannerRaw.split("\n").length} 行) ==`)
+      log("dim", bannerRaw.slice(0, 300) + (bannerRaw.length > 300 ? "..." : ""))
+    }
     return
   }
 
@@ -62,6 +68,7 @@ async function main() {
     )
     await Bun.write(logoFile, newContent)
     log("success", "banner 已替换")
+    verboseLog(`目标文件: ${logoFile}`)
     return
   }
 

@@ -36,7 +36,7 @@ bun install
 | `productNameUpper` | 全大写（环境变量前缀） | `MYCODE` |
 | `productDomain` | 产品域名 | `mycode.example.com` |
 | `upstreamRepo` | 上游仓库地址 | `https://github.com/anomalyco/opencode` |
-| `upstreamRef` | 上游版本（tag 或 SHA） | `v1.4.3` |
+| `upstreamRef` | 上游版本（tag 或 SHA） | `v1.4.2` |
 | `desktopAppId` | 桌面应用标识符 | `com.example.mycode` |
 | `urlScheme` | URL Scheme | `mycode` |
 | `npmPackageName` | npm 包名 | `mycode-ai` |
@@ -68,9 +68,47 @@ bun run build --skip-fetch
 # 构建后自动运行验证
 bun run build --verify
 
-# 指定目标平台
-bun run build --target=win32
+# 输出详细日志（脚本输出、注入内容、验证详情、阶段总结）
+bun run build --verbose
 ```
+
+构建完成后，上游产物会自动复制到项目根目录的 `dist/`。每次构建开始前，根目录 `dist/` 会先清理，避免旧产物残留。
+
+### 5. 控制构建目标（可选）
+
+`production.jsonc` 支持通过 `buildTargets` 精确声明要构建的 OS/架构组合，格式与上游 `upstream/packages/opencode/script/build.ts` 的目标定义保持一致：
+
+```jsonc
+"buildTargets": [
+       {
+              "os": "linux",
+              "arch": "x64",
+              "abi": "musl"
+       },
+       {
+              "os": "linux",
+              "arch": "x64",
+              "abi": "musl",
+              "avx2": false
+       },
+       {
+              "os": "darwin",
+              "arch": "x64",
+              "avx2": false
+       },
+       {
+              "os": "win32",
+              "arch": "x64"
+       }
+]
+```
+
+- `os`: `linux`、`darwin`、`win32`
+- `arch`: `x64`、`arm64`
+- `abi: "musl"`: 仅 Linux musl 变体
+- `avx2: false`: baseline 变体（无 AVX2）
+
+未配置 `buildTargets` 时，仍沿用上游默认构建逻辑。
 
 ## 构建流程
 
@@ -91,7 +129,11 @@ apply-banner       TUI banner 替换
        ↓
 migrate-config     迁移补丁注入（旧品牌 → 新品牌配置自动迁移）
        ↓
+apply-build-targets 构建目标注入（将 buildTargets 透传给上游）
+       ↓
 upstream build     调用上游 bun build 输出最终产物
+       ↓
+copy dist          复制 upstream/packages/opencode/dist → 项目根 dist/
 ```
 
 也可单独运行各步骤：
@@ -111,9 +153,10 @@ bun run verify         # 验证替换结果
 | 1 | `OPENCODE_` | `{productNameUpper}_` |
 | 2 | `OPENCODE` | `{productNameUpper}` |
 | 3 | `OpenCode` | `{productNameDisplay}` |
-| 4 | `opencode-ai` | `{npmPackageName}` |
-| 5 | `opencode.ai` | `{productDomain}` |
-| 6 | `opencode` | `{productName}` |
+| 4 | `Opencode` | `{productNameDisplay}` |
+| 5 | `opencode-ai` | `{npmPackageName}` |
+| 6 | `opencode.ai` | `{productDomain}` |
+| 7 | `opencode` | `{productName}` |
 
 ### 文件分类处理
 
@@ -122,7 +165,7 @@ bun run verify         # 验证替换结果
 | **代码文件**（`.ts`/`.js`/`.rs`） | 状态机（JS 模式）：字符串字面量全替换，normal 上下文仅替换环境变量模式，注释不动 |
 | **Shell 脚本**（`.sh`/`.bash`） | 状态机（Shell 模式）：默认全替换，仅跳过 `#` 注释和单引号内容 |
 | **数据文件**（`.json`/`.yaml`/`.html` 等） | 全文替换（排除白名单行） |
-| **`package.json`** | JSON 结构化处理：`name`/`bin`/`scripts` 单独处理，`dependencies` 键名不动 |
+| **`package.json`** | JSON 结构化处理：`name`/`displayName`/`bin`/`scripts` 单独处理；依赖键名仅重写 `workspace:*` 引用，外部依赖保持不变 |
 
 ### 白名单
 
@@ -147,8 +190,33 @@ bun run verify         # 验证替换结果
 ```
 
 - `${ENV_VAR}` 模板在运行时展开
-- 环境变量未设置或为空时 fallback 到默认路径
+- 可选 `envDefaults` 为路径模板中的环境变量提供默认值
+- `envDefaults` 支持两种值：字符串（所有平台共享）或对象（按 `windows` / `linux` / `macos` 区分）
+
+```jsonc
+"envDefaults": {
+       "MY_CODE_VAR": "1",
+       "MY_CODE_ROOT": {
+              "windows": "C:\\Users\\Public\\mycode",
+              "linux": "/opt/mycode",
+              "macos": "/Library/Application Support/mycode"
+       }
+}
+```
+
+- 路径变量解析优先级：运行时环境变量 → 变量级平台默认值 → 变量级共享默认值 → 默认 XDG 路径
 - 设置 `{PRODUCT_UPPER}_CUSTOM_PATHS=0` 可在运行时绕过路径覆盖
+
+## 详细日志
+
+执行 `bun run build --verbose` 时，所有阶段会输出详细日志，包括但不限于：
+
+- 子脚本执行过程中的完整输出
+- 被修改的文件及命中的替换规则
+- 注入到上游文件中的内容
+- 验证阶段每个检查项的结果与耗时
+- 上游构建过程的实时输出
+- 每个阶段完成后的耗时和总结报告
 
 ## 配置迁移
 
@@ -199,12 +267,14 @@ scripts/
   apply-windows-pe.ts         Windows PE 图标
   apply-banner.ts             TUI banner
   migrate-config.ts           迁移补丁注入
+  apply-build-targets.ts      构建目标注入
   verify.ts                   完整性验证
 assets/
   banner.txt                  TUI 启动 banner
   icons/                      图标资产
 patches/                      上游补丁
 .github/workflows/            CI 配置
+dist/                         根目录构建产物输出
 upstream/                     (git ignored) 上游源码临时目录
 ```
 

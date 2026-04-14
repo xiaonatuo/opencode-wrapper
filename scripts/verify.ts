@@ -16,6 +16,8 @@ import {
   replaceFullText,
   buildReplacePairs,
   log,
+  isVerbose,
+  verboseLog,
 } from "./_utils"
 
 /** 单个检查项 */
@@ -226,18 +228,37 @@ async function main() {
   // ======== 执行所有检查 ========
   log("info", `运行 ${checks.length} 项验证...`)
 
+  const checkResults: { name: string; passed: boolean; time: number }[] = []
+
   for (const check of checks) {
+    const t0 = Date.now()
     try {
+      verboseLog(`  ▶ 检查: ${check.name}`)
       const passed = await check.fn()
+      const elapsed = Date.now() - t0
+      checkResults.push({ name: check.name, passed, time: elapsed })
       if (passed) {
         log("success", check.name)
+        verboseLog(`    通过 (${elapsed}ms)`)
       } else {
         failures.push(check.name)
+        verboseLog(`    失败 (${elapsed}ms)`)
       }
     } catch (e) {
+      const elapsed = Date.now() - t0
       log("error", `${check.name}: ${e}`)
       failures.push(check.name)
+      checkResults.push({ name: check.name, passed: false, time: elapsed })
     }
+  }
+
+  if (isVerbose()) {
+    log("dim", "=== 验证阶段总结 ===")
+    for (const r of checkResults) {
+      log("dim", `  ${r.passed ? "✔" : "✖"} ${r.name} (${r.time}ms)`)
+    }
+    log("dim", `通过: ${checkResults.filter(r => r.passed).length}/${checks.length}, 失败: ${failures.length}`)
+    log("dim", "====================")
   }
 
   if (failures.length > 0) {

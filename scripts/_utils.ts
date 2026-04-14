@@ -262,7 +262,16 @@ export function isWhitelistedLine(
   patterns: string[],
 ): boolean {
   for (const pat of patterns) {
-    if (line.includes(pat)) return true
+    // 包含正则特殊字符（除 @ 外）时作为正则匹配，否则作为子字符串匹配
+    if (/[\\.*+?^${}()|[\]]/.test(pat)) {
+      try {
+        if (new RegExp(pat).test(line)) return true
+      } catch {
+        if (line.includes(pat)) return true
+      }
+    } else {
+      if (line.includes(pat)) return true
+    }
   }
   return false
 }

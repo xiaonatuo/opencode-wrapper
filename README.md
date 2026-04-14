@@ -46,12 +46,14 @@ bun install
 
 ```
 assets/
-  banner.txt              TUI 启动 banner（支持 ANSI 转义）
+  banner.txt              TUI 启动 banner（纯文本，`#` 会被渲染为 █ 块字符）
   icons/
     tauri/                 Tauri 桌面端图标集
     electron/              Electron 桌面端图标集
     app.ico                Windows PE 图标（多分辨率 ICO）
 ```
+
+`assets.banner` 未配置或文件不存在时，构建会使用 [figlet](https://github.com/cmatsuoka/figlet) Banner3 字体自动从 `productNameDisplay` 生成像素块风格的 banner，无需手动准备。
 
 ### 4. 构建
 

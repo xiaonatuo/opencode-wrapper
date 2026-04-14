@@ -35,7 +35,13 @@ export interface ProductionConfig {
     config: string | null
     state: string | null
   }
-  envDefaults?: Record<string, string>
+  envDefaults?: {
+    /** 适用于所有平台的共享默认值（顶层字符串字段） */
+    [varName: string]: string | Record<string, string> | undefined
+    windows?: Record<string, string>
+    linux?: Record<string, string>
+    macos?: Record<string, string>
+  }
   brandWhitelist: {
     files: string[]
     lines: string[]

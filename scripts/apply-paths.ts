@@ -35,7 +35,19 @@ async function main() {
   }
 
   const envPrefix = cfg.productNameUpper
-  const envDefaults = cfg.envDefaults ?? {}
+  const rawDefaults = cfg.envDefaults ?? {}
+
+  // 分离 OS 专属 bucket 和共享 defaults
+  const osBucketKeys = new Set(["windows", "linux", "macos"])
+  const sharedDefaults: Record<string, string> = {}
+  for (const [k, v] of Object.entries(rawDefaults)) {
+    if (!osBucketKeys.has(k) && typeof v === "string") {
+      sharedDefaults[k] = v
+    }
+  }
+  const win32Defaults: Record<string, string> = (rawDefaults.windows as Record<string, string>) ?? {}
+  const linuxDefaults: Record<string, string> = (rawDefaults.linux as Record<string, string>) ?? {}
+  const darwinDefaults: Record<string, string> = (rawDefaults.macos as Record<string, string>) ?? {}
 
   // 生成路径赋值语句
   // ⚠️ 在 global/index.ts 中 Path 导出为 Global.Path（namespace），必须使用完整引用
@@ -56,23 +68,27 @@ async function main() {
     assignments.push(`  Global.Path.bin = path.join(Global.Path.cache, "bin")`)
   }
 
-  // 将 envDefaults 序列化嵌入注入代码（构建期固化，无运行时依赖）
-  const defaultsLiteral = JSON.stringify(envDefaults, null, 2)
-    .split("\n")
-    .map((l, i) => (i === 0 ? l : `  ${l}`))
-    .join("\n")
+  // 将各平台 defaults 序列化嵌入注入代码（构建期固化，无运行时依赖）
+  const ser = (o: Record<string, string>) =>
+    JSON.stringify(o, null, 2).split("\n").map((l, i) => (i === 0 ? l : `  ${l}`)).join("\n")
 
   // ⚠️ 保持原文件换行风格
   const eol = content.includes("\r\n") ? "\r\n" : "\n"
   const injectionLf = `
 // ===== 由 opencode-wrapper 注入 ===== @brand-keep
 // 环境变量默认值（构建期固化自 production.jsonc envDefaults）
-const _envDefaults: Record<string, string> = ${defaultsLiteral}
-// 优先级：process.env > envDefaults > XDG fallback
+// 优先级：process.env > OS 专属 defaults > 共享 defaults > XDG fallback
+const _envDefaultsByPlatform: Record<string, Record<string, string>> = {
+  win32: ${ser(win32Defaults)},
+  linux: ${ser(linuxDefaults)},
+  darwin: ${ser(darwinDefaults)},
+}
+const _envDefaultsShared: Record<string, string> = ${ser(sharedDefaults)}
 function _expandEnvPath(tpl: string, fallback: string): string {
+  const _osDef = _envDefaultsByPlatform[process.platform] ?? {}
   let ok = true
   const r = tpl.replace(/\\$\\{([^}]+)\\}/g, (_, n) => {
-    const v = process.env[n] || _envDefaults[n]
+    const v = process.env[n] || _osDef[n] || _envDefaultsShared[n]
     if (!v) { ok = false; return "" }
     return v
   })

@@ -23,9 +23,13 @@
         "state": "${MY_CODE_ROOT}/state"
     },
     // 路径模板中环境变量的默认值
-    // 当运行时该环境变量未设置时，使用此处的默认值（优先级：process.env > envDefaults > XDG 路径）
+    // 当运行时该环境变量未设置时，使用此处的默认值
+    // 优先级：process.env > OS 专属 > 共享（顶层字符串值） > XDG 路径
+    // OS 专属字段：windows / linux / macos；其余顶层字符串字段为所有平台共享
     // "envDefaults": {
-    //     "MY_CODE_ROOT": "/opt/mycode"
+    //     "windows": { "MY_CODE_ROOT": "C:\\Users\\Public\\mycode" },
+    //     "linux":   { "MY_CODE_ROOT": "/opt/mycode" },
+    //     "macos":   { "MY_CODE_ROOT": "/Library/Application Support/mycode" }
     // },
     // ===== 品牌替换白名单 =====
     "brandWhitelist": {

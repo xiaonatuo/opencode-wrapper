@@ -35,6 +35,7 @@ export interface ProductionConfig {
     config: string | null
     state: string | null
   }
+  envDefaults?: Record<string, string>
   brandWhitelist: {
     files: string[]
     lines: string[]

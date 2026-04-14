@@ -35,6 +35,7 @@ async function main() {
   }
 
   const envPrefix = cfg.productNameUpper
+  const envDefaults = cfg.envDefaults ?? {}
 
   // 生成路径赋值语句
   // ⚠️ 在 global/index.ts 中 Path 导出为 Global.Path（namespace），必须使用完整引用
@@ -55,15 +56,23 @@ async function main() {
     assignments.push(`  Global.Path.bin = path.join(Global.Path.cache, "bin")`)
   }
 
+  // 将 envDefaults 序列化嵌入注入代码（构建期固化，无运行时依赖）
+  const defaultsLiteral = JSON.stringify(envDefaults, null, 2)
+    .split("\n")
+    .map((l, i) => (i === 0 ? l : `  ${l}`))
+    .join("\n")
+
   // ⚠️ 保持原文件换行风格
   const eol = content.includes("\r\n") ? "\r\n" : "\n"
   const injectionLf = `
 // ===== 由 opencode-wrapper 注入 ===== @brand-keep
-// ⚠️ 环境变量未设置/值为空 → fallback 到当前默认路径
+// 环境变量默认值（构建期固化自 production.jsonc envDefaults）
+const _envDefaults: Record<string, string> = ${defaultsLiteral}
+// 优先级：process.env > envDefaults > XDG fallback
 function _expandEnvPath(tpl: string, fallback: string): string {
   let ok = true
   const r = tpl.replace(/\\$\\{([^}]+)\\}/g, (_, n) => {
-    const v = process.env[n]
+    const v = process.env[n] || _envDefaults[n]
     if (!v) { ok = false; return "" }
     return v
   })

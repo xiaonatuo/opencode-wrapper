@@ -75,20 +75,33 @@ function normalizeLineEndings(newContent: string, original: string): string {
  * 返回替换后的文件内容；若未找到任何模式则返回 null
  */
 function replaceLogo(content: string, newLogoBlock: string): string | null {
-  // 对象格式（当前上游）：{ 内不含 }，匹配跨行
-  const objectPat = /export\s+const\s+(logo|LOGO)\s*=\s*\{[^}]*\}/s
-  if (objectPat.test(content)) {
-    return content.replace(objectPat, newLogoBlock)
+  // 对象格式（当前上游）：贪婪匹配从 `= {` 到最外层 `}` 之间的所有内容
+  // 使用括号计数而非正则，以正确处理 left/right 数组内的嵌套结构
+  const startPat = /export\s+const\s+(?:logo|LOGO)\s*=\s*\{/
+  const startMatch = startPat.exec(content)
+  if (startMatch) {
+    let depth = 0
+    let end = -1
+    for (let i = startMatch.index + startMatch[0].length - 1; i < content.length; i++) {
+      if (content[i] === "{") depth++
+      else if (content[i] === "}") {
+        depth--
+        if (depth === 0) { end = i + 1; break }
+      }
+    }
+    if (end !== -1) {
+      return content.slice(0, startMatch.index) + newLogoBlock + content.slice(end)
+    }
   }
 
   // 模板字面量格式
-  const tplPat = /export\s+const\s+(logo|LOGO)\s*=\s*`[^`]*`/s
+  const tplPat = /export\s+const\s+(?:logo|LOGO)\s*=\s*`[^`]*`/s
   if (tplPat.test(content)) {
     return content.replace(tplPat, newLogoBlock)
   }
 
   // 单/双引号字符串格式
-  const strPat = /export\s+const\s+(logo|LOGO)\s*=\s*["'][^"']*["']/
+  const strPat = /export\s+const\s+(?:logo|LOGO)\s*=\s*["'][^"']*["']/
   if (strPat.test(content)) {
     return content.replace(strPat, newLogoBlock)
   }
@@ -119,14 +132,24 @@ async function main() {
   if (bannerPath && existsSync(bannerPath)) {
     const bannerRaw = await Bun.file(bannerPath).text()
 
-    // 转义 banner 内容为 JS 模板字符串（保留 ANSI \x1b）
-    const escaped = bannerRaw
-      .replace(/\\/g, "\\\\")
-      .replace(/`/g, "\\`")
-      .replace(/\$/g, "\\$")
-      .replace(/\\\\x1b/g, "\\x1b")
+    // 将文本 banner 转换为 { left, right } 对象格式
+    // logo.ts 的消费方（ui.ts / logo.tsx）均依赖 logo.left / logo.right 数组
+    // 将内容放入 right（亮色渲染），left 填等宽空白（不显示阴影）
+    const rows = bannerRaw.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n")
+    const maxLen = rows.reduce((m, r) => Math.max(m, r.length), 0)
+    const blank = " ".repeat(maxLen)
+    const leftRows  = rows.map(() => blank)
+    const rightRows = rows
 
-    const logoBlock = "export const logo = `" + escaped + "`"
+    const serArr = (arr: string[]) =>
+      "[" + arr.map((s) => JSON.stringify(s)).join(", ") + "]"
+
+    const logoBlock =
+      `export const logo = {\n` +
+      `  left:  ${serArr(leftRows)},\n` +
+      `  right: ${serArr(rightRows)},\n` +
+      `}`
+
     const newContent = replaceLogo(content, logoBlock)
     if (newContent === null) {
       log("warn", "未找到可替换的 logo 导出模式，跳过 banner 注入")
@@ -139,7 +162,7 @@ async function main() {
     if (isVerbose()) {
       log("dim", `目标文件: ${logoFile}`)
       log("dim", `Banner 源: ${bannerPath}`)
-      log("dim", `=== Banner 内容预览 (${bannerRaw.split("\n").length} 行) ===`)
+      log("dim", `=== Banner 内容预览 (${rows.length} 行) ===`)
       log("dim", bannerRaw.slice(0, 300) + (bannerRaw.length > 300 ? "..." : ""))
     }
     return

@@ -13,6 +13,7 @@
 
 import path from "node:path"
 import { existsSync } from "node:fs"
+import figlet from "figlet"
 import { loadProduction, upstreamDir, log, projectRoot, isVerbose, verboseLog } from "./_utils"
 
 // ============================================================
@@ -20,25 +21,55 @@ import { loadProduction, upstreamDir, log, projectRoot, isVerbose, verboseLog } 
 // ============================================================
 
 /**
- * 根据 productNameDisplay 生成简单方框样式的 logo 对象替换代码
+ * 根据 productNameDisplay 使用 figlet Banner3 字体渲染像素方块样式的 logo
  *
- * 生成示例（productNameDisplay = "MyCode"）：
- *   export const logo = {
- *     left:  ["            ", "╔══════════╗", "║  MyCode  ║", "╚══════════╝"],
- *     right: ["            ", "            ", "            ", "            "],
- *   }
+ * 流程：figlet Banner3 → `#` 为实心像素 → 替换为 `██` / `░░` / `  `
+ * 阴影：右 + 下 + 右下方向的像素投影
  */
 function generateDefaultLogo(productNameDisplay: string): string {
-  const padH = 2
-  const inner = padH + productNameDisplay.length + padH
-  const blank   = " ".repeat(inner + 2)           // 与框同宽的空格行
-  const topLine = "╔" + "═".repeat(inner) + "╗"
-  const midLine = "║" + " ".repeat(padH) + productNameDisplay + " ".repeat(padH) + "║"
-  const botLine = "╚" + "═".repeat(inner) + "╝"
+  const raw = figlet.textSync(productNameDisplay.toUpperCase(), {
+    font: "Banner3",
+    horizontalLayout: "default",
+    verticalLayout: "default",
+  })
 
-  // left 填内容（灰色渲染），right 留空（宽度=0），避免空格撑宽行造成居中偏移
-  const leftRows  = [blank, topLine, midLine, botLine]
-  const rightRows = leftRows.map(() => "")
+  // 构建布尔像素网格
+  const lines = raw.split("\n")
+  // 去掉末尾全空行
+  while (lines.length > 0 && lines[lines.length - 1].trim() === "") lines.pop()
+
+  const H = lines.length
+  const W = lines.reduce((m, l) => Math.max(m, l.length), 0)
+
+  const on: boolean[][] = Array.from({ length: H + 1 },
+    (_, r) => Array.from({ length: W + 1 },
+      (__, c) => r < H && c < (lines[r]?.length ?? 0) && lines[r][c] === "#"))
+
+  // 计算投影阴影（右 / 下 / 右下）
+  const shd: boolean[][] = Array.from({ length: H + 1 }, () => new Array(W + 1).fill(false))
+  for (let r = 0; r < H; r++) {
+    for (let c = 0; c <= W; c++) {
+      if (!on[r][c]) continue
+      for (const [dr, dc] of [[0, 1], [1, 0], [1, 1]] as [number, number][]) {
+        const nr = r + dr, nc = c + dc
+        if (nr <= H && nc <= W && !on[nr][nc]) shd[nr][nc] = true
+      }
+    }
+  }
+
+  // 每个像素列 → 2 个终端字符
+  const rightRows: string[] = []
+  for (let r = 0; r <= H; r++) {
+    let row = ""
+    for (let c = 0; c <= W; c++) {
+      row += on[r][c] ? "██" : shd[r][c] ? "░░" : "  "
+    }
+    rightRows.push(row.trimEnd())
+  }
+  // 去掉末尾空行
+  while (rightRows.length > 0 && rightRows[rightRows.length - 1].trim() === "") rightRows.pop()
+
+  const leftRows = rightRows.map(() => "")
 
   const serArr = (arr: string[]) =>
     "[" + arr.map((s) => JSON.stringify(s)).join(", ") + "]"

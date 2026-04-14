@@ -25,26 +25,15 @@ async function main() {
   // ============================================================
   // 8.1 Tauri
   // ============================================================
-  const tauriIconSrc = icons.tauri
-    ? path.resolve(path.join(path.dirname(path.join(dir, "..")), "..", icons.tauri))
-    : null
-
-  // ⚠️ 使用 projectRoot 下的 assets 路径
-  const tauriIconDir = tauriIconSrc
-    ? path.join(path.dirname(path.join(import.meta.dir, "..")), icons.tauri)
-    : null
-
   const tauriSrcDir = path.join(dir, "packages/desktop/src-tauri")
 
   if (icons.tauri && existsSync(path.join(import.meta.dir, "..", icons.tauri))) {
     const srcDir = path.join(import.meta.dir, "..", icons.tauri)
     const destDir = path.join(tauriSrcDir, "icons/prod")
 
-    if (existsSync(srcDir)) {
-      log("info", "覆盖 Tauri 图标...")
-      await fs.cp(srcDir, destDir, { recursive: true, force: true })
-      log("success", "Tauri 图标已覆盖")
-    }
+    log("info", "覆盖 Tauri 图标...")
+    await fs.cp(srcDir, destDir, { recursive: true, force: true })
+    log("success", "Tauri 图标已覆盖")
   } else if (icons.tauri) {
     log("warn", `Tauri 图标目录不存在: ${icons.tauri}，跳过`)
   }
@@ -104,11 +93,9 @@ async function main() {
     const srcDir = path.join(import.meta.dir, "..", icons.electron)
     const destDir = path.join(electronDir, "resources")
 
-    if (existsSync(srcDir)) {
-      log("info", "覆盖 Electron 图标...")
-      await fs.cp(srcDir, destDir, { recursive: true, force: true })
-      log("success", "Electron 图标已覆盖")
-    }
+    log("info", "覆盖 Electron 图标...")
+    await fs.cp(srcDir, destDir, { recursive: true, force: true })
+    log("success", "Electron 图标已覆盖")
   } else if (icons.electron) {
     log("warn", `Electron 图标目录不存在: ${icons.electron}，跳过`)
   }

@@ -27,28 +27,38 @@ async function main() {
   }
 
   const content = await Bun.file(targetFile).text()
+
+  // ⚠️ 幂等检查：已注入则跳过
+  if (content.includes("===== 由 opencode-wrapper 注入 =====")) {
+    log("info", "路径注入已存在，跳过（幂等）")
+    return
+  }
+
   const envPrefix = cfg.productNameUpper
 
   // 生成路径赋值语句
+  // ⚠️ 在 global/index.ts 中 Path 导出为 Global.Path（namespace），必须使用完整引用
   const assignments: string[] = []
   const hasData = paths.data !== null && paths.data !== undefined
   const hasCache = paths.cache !== null && paths.cache !== undefined
 
   for (const [key, tpl] of entries) {
-    assignments.push(`  Path.${key} = _expandEnvPath(${JSON.stringify(tpl)}, Path.${key})`)
+    assignments.push(`  Global.Path.${key} = _expandEnvPath(${JSON.stringify(tpl)}, Global.Path.${key})`)
   }
 
   // ⚠️ 如果 data 被覆盖 → 同步重算 Path.log
   if (hasData) {
-    assignments.push(`  Path.log = path.join(Path.data, "log")`)
+    assignments.push(`  Global.Path.log = path.join(Global.Path.data, "log")`)
   }
   // ⚠️ 如果 cache 被覆盖 → 同步重算 Path.bin
   if (hasCache) {
-    assignments.push(`  Path.bin = path.join(Path.cache, "bin")`)
+    assignments.push(`  Global.Path.bin = path.join(Global.Path.cache, "bin")`)
   }
 
-  const injection = `
-// ===== 由 opencode-wrapper 注入 =====
+  // ⚠️ 保持原文件换行风格
+  const eol = content.includes("\r\n") ? "\r\n" : "\n"
+  const injectionLf = `
+// ===== 由 opencode-wrapper 注入 ===== @brand-keep
 // ⚠️ 环境变量未设置/值为空 → fallback 到当前默认路径
 function _expandEnvPath(tpl: string, fallback: string): string {
   let ok = true
@@ -65,8 +75,9 @@ ${assignments.join("\n")}
 }
 // ===== 注入结束 =====
 `
+  const injection = injectionLf.replace(/\n/g, eol)
 
-  const newContent = content + "\n" + injection
+  const newContent = content + eol + injection
   await Bun.write(targetFile, newContent)
   log("success", `路径注入完成：${entries.length} 个路径覆盖 + ${(hasData ? 1 : 0) + (hasCache ? 1 : 0)} 个派生路径同步`)
 }

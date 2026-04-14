@@ -67,7 +67,7 @@ function processPackageJson(
   // 用于恢复脚本中被误替换的目录路径
   const revertPkgPath = (s: string) =>
     s.replace(
-      new RegExp(`packages\\/${cfg.productName.replace(/[.*+?^${}()|[\\]\\]/g, "\\\\$&")}(?=[/\\\\\\s"']|$)`, "g"),
+      new RegExp(`packages\\/${cfg.productName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=[/\\\\\\s"']|$)`, "g"),
       `packages/${upstreamDirName}`,
     )
 

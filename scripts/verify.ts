@@ -193,8 +193,16 @@ async function main() {
       const f = path.join(dir, "packages/opencode/script/build.ts")
       if (!existsSync(f)) return true
       const content = await Bun.file(f).text()
-      if (!/windows\s*:\s*\{[^}]*icon/.test(content)) {
+      const hasConditionalWinIcon =
+        /item\.os\s*===\s*["']win32["']\s*\?\s*\{\s*windows\s*:\s*\{[^}]*icon/.test(content)
+      const hasPlainWinIcon = /windows\s*:\s*\{[^}]*icon/.test(content)
+      if (!hasConditionalWinIcon && !hasPlainWinIcon) {
         log("error", "build.ts windows.icon 未注入")
+        return false
+      }
+      // 新行为要求仅对 win32 目标注入，避免 linux/darwin 构建时写入 PE 元数据
+      if (hasPlainWinIcon && !hasConditionalWinIcon) {
+        log("error", "build.ts windows.icon 不是按 win32 条件注入")
         return false
       }
       // .ico 文件应存在

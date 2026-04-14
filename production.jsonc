@@ -78,7 +78,7 @@
             "NOTICE",
             "**/node_modules/**",
             "**/dist/**",
-            "*.lock",
+            "**/*.lock",
             "bunfig.toml",
             "**/models-snapshot.*"
         ],

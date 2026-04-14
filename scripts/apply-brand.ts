@@ -39,9 +39,9 @@ function processPackageJson(
 ): string {
   const pkg = JSON.parse(content)
 
-  // name 字段
+  // name 字段：走完整替换链（pair 5 先把 opencode-ai → npmPackageName，避免保留 -ai 后缀）
   if (typeof pkg.name === "string") {
-    pkg.name = pkg.name.replace(/\bopencode\b/g, cfg.productName)
+    pkg.name = applyPairsToString(pkg.name, pairs)
   }
 
   // displayName
@@ -91,7 +91,7 @@ function processPackageJson(
     const newDeps: Record<string, string> = {}
     for (const [key, val] of Object.entries(deps)) {
       if (typeof val === "string" && (val as string).startsWith("workspace:")) {
-        // ⚠️ workspace 引用 → 替换 key（与 name 字段同步）
+        // ⚠️ workspace 引用 → key 与 name 字段使用相同的替换链，保持一致
         newDeps[applyPairsToString(key, pairs)] = val as string
       } else {
         newDeps[key] = val as string

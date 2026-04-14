@@ -1,18 +1,18 @@
 {
     // ===== 品牌标识 =====
-    "productName": "mycode",
-    "productNameDisplay": "MyCode",
-    "productNameUpper": "MYCODE",
-    "productDomain": "mycode.example.com",
-    "productRepoUrl": "https://github.com/your-org/mycode",
+    "productName": "uni-agent",
+    "productNameDisplay": "Uni Agent",
+    "productNameUpper": "UNI_AGENT",
+    "productDomain": "uni-agent.com",
+    "productRepoUrl": "https://github.com/uni-agent",
     // ===== 上游源 =====
     "upstreamRepo": "https://github.com/anomalyco/opencode",
     // ⚠️ 必须是 tag 或完整 SHA，禁止分支名
-    "upstreamRef": "v1.4.2",
+    "upstreamRef": "v1.4.3",
     // ===== 桌面应用 =====
-    "desktopAppId": "com.example.mycode",
-    "urlScheme": "mycode",
-    "npmPackageName": "mycode-ai",
+    "desktopAppId": "com.uni-agent",
+    "urlScheme": "uni-agent",
+    "npmPackageName": "uni-agent",
     // ===== 全局路径覆盖 =====
     // null = 沿用 XDG 默认（品牌替换后 app name 已为 productName）
     // 字符串支持 ${ENV_VAR} 运行时展开
@@ -31,9 +31,9 @@
     "envDefaults": {
         "MY_CODE_VAR": "1",
         "MY_CODE_ROOT": {
-            "windows": "C:/Users/Public/mycode",
-            "linux": "/opt/mycode",
-            "macos": "/Library/Application Support/mycode"
+            "windows": "C:/Users/Public/uni-agent",
+            "linux": "/opt/uni-agent",
+            "macos": "/Library/Application Support/uni-agent"
         }
     },
     // ===== 构建目标 =====
@@ -48,22 +48,8 @@
             "arch": "x64"
         },
         {
-            "os": "win32",
-            "arch": "x64",
-            "avx2": false
-        },
-        {
             "os": "linux",
             "arch": "x64"
-        },
-        {
-            "os": "linux",
-            "arch": "x64",
-            "abi": "musl"
-        },
-        {
-            "os": "darwin",
-            "arch": "arm64"
         },
         {
             "os": "darwin",
@@ -80,16 +66,21 @@
             "**/dist/**",
             "**/*.lock",
             "bunfig.toml",
-            "**/models-snapshot.*"
+            "**/models-snapshot.*",
+            "README*.md",
+            "CONTRIBUTING.md",
+            ".github/**",
+            ".opencode/**"
         ],
         // 正则模式，命中行整行保留不替换（行级）
         "lines": [
-            "@brand-keep"
+            "@brand-keep",
+            "opencode\\.ai"
         ]
     },
     // ===== 资产文件 =====
     "assets": {
-        "banner": "assets/banner.txt",
+        // "banner": "assets/banner.txt",
         "icons": {
             "tauri": "assets/icons/tauri/",
             "electron": "assets/icons/electron/",

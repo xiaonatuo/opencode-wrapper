@@ -12,6 +12,7 @@ import {
   walkFiles,
   classifyFile,
   isWhitelistedFile,
+  isWhitelistedLine,
   replaceStringLiterals,
   replaceFullText,
   buildReplacePairs,
@@ -82,7 +83,7 @@ async function main() {
         if (cls.type === "data") {
           const lines = content.split("\n")
           for (const line of lines) {
-            if (lineWhitelist.some((w) => line.includes(w))) continue
+            if (isWhitelistedLine(line, lineWhitelist)) continue
             if (pattern.test(line)) {
               violations.push(relPath)
               break
